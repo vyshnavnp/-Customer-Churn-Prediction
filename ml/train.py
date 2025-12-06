@@ -13,7 +13,7 @@ DATA_PATH = "../data/Customer_data.csv"
 EXPERIMENT_NAME = "Telco_Churn_Prediction"
 MODEL_NAME = "catboost_churn_model"
 ARTIFACT_PATH = "model"
-TRACKING_URI = "http://44.211.239.119:5000"
+TRACKING_URI = "http://54.83.186.49:5000"
 
 def train_model():
     # 1. Prepare Data
