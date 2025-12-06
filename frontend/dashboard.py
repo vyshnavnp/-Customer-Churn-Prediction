@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -11,9 +12,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# API URL (Local Docker Container)
-# If deploying to AWS later, you will simply change this URL
-API_URL = "http://localhost:8080/predict"
+# Get API URL from environment variable, default to localhost if not set
+# In Docker Compose, we will set this to "http://api_service:80/predict"
+API_URL = os.getenv("API_URL", "http://localhost:8080/predict")
 
 # --- CACHING DATA ---
 @st.cache_data

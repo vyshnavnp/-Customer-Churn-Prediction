@@ -1,0 +1,108 @@
+name: Deploy Multi-Container App to EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: us-east-1                   # Change to your region
+  ECR_API_REPO: churn-api                 # Name of API repo in ECR
+  ECR_FRONT_REPO: churn-frontend          # Name of Frontend repo in ECR
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    # --- TRAIN MODEL ---
+    - name: Set up Python for Training
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+    
+    - name: Install Training Dependencies
+      run: pip install pandas openpyxl scikit-learn catboost mlflow
+
+    - name: Train Model
+      run: |
+        cd ml
+        python train.py
+        mv final_model.cbm ../api/
+
+    # --- BUILD & PUSH API ---
+    - name: Build and Push API
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: latest
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_API_REPO:$IMAGE_TAG ./api
+        docker push $ECR_REGISTRY/$ECR_API_REPO:$IMAGE_TAG
+
+    # --- BUILD & PUSH FRONTEND ---
+    - name: Build and Push Frontend
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: latest
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_FRONT_REPO:$IMAGE_TAG ./frontend
+        docker push $ECR_REGISTRY/$ECR_FRONT_REPO:$IMAGE_TAG
+
+  deploy-to-ec2:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    # 1. NEW STEP: Securely Copy (SCP) config files to EC2
+    - name: Copy files to EC2
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "docker-compose.prod.yaml,data/Customer_data.xlsx"
+        target: "/home/ec2-user/churn-app/"
+        strip_components: 0
+
+    # 2. SSH into EC2 and run Docker Compose
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        envs: AWS_REGION, ECR_API_REPO, ECR_FRONT_REPO
+        script: |
+          # Login to AWS ECR
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+          
+          # Set Env Vars
+          export AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}
+          export AWS_REGION=us-east-1
+          
+          # Go to app folder
+          cd /home/ec2-user/churn-app
+          
+          # Pull latest images and restart
+          docker-compose -f docker-compose.prod.yaml pull
+          docker-compose -f docker-compose.prod.yaml down
+          docker-compose -f docker-compose.prod.yaml up -d
+          
+          # Cleanup unused images to save space
+          docker image prune -f
