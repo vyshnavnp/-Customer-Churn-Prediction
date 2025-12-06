@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   api_service:
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/churn-api:latest
@@ -14,10 +15,23 @@ services:
     ports:
       - "8501:8501"
     environment:
-      # CRITICAL: This must use the container name 'api_service', NOT localhost
       - API_URL=http://api_service:80/predict
     depends_on:
       - api_service
+    networks:
+      - churn-net
+
+  # --- NEW: MLFLOW SERVICE ---
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.7.1
+    container_name: churn-mlflow
+    ports:
+      - "5000:5000"
+    # Runs the server and stores data in a local SQLite file inside the container
+    command: mlflow server --backend-store-uri sqlite:///mlflow/mlflow.db --default-artifact-root /mlflow/artifacts --host 0.0.0.0 --port 5000
+    volumes:
+      # Maps a folder on EC2 to the container so data isn't lost on restart
+      - ./mlflow_data:/mlflow
     networks:
       - churn-net
 

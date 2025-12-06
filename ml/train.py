@@ -1,9 +1,9 @@
 import pandas as pd
 import mlflow
 import mlflow.catboost
-from catboost import CatBoostClassifier, Pool
+from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 import preprocess
 import os
 
@@ -12,6 +12,11 @@ DATA_PATH = "../data/Customer_data.csv"
 EXPERIMENT_NAME = "Telco_Churn_Prediction"
 MODEL_NAME = "catboost_churn_model"
 ARTIFACT_PATH = "model"
+
+# --- CRITICAL UPDATE: Point to your EC2 IP ---
+# Note: If you stop/start your EC2, this IP will change!
+# Ideally, store this in GitHub Secrets as MLFLOW_TRACKING_URI
+TRACKING_URI = "http://44.211.239.119:5000"
 
 def train_model():
     # 1. Prepare Data
@@ -27,14 +32,10 @@ def train_model():
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     
-    print(f"Training Data Shape: {X_train.shape}")
-    print(f"Test Data Shape: {X_test.shape}")
-
     # 3. Setup MLflow
+    # This connects the script to your EC2 server
+    mlflow.set_tracking_uri(TRACKING_URI)
     mlflow.set_experiment(EXPERIMENT_NAME)
-    
-    # Enable auto-logging (Optional, but captures a lot of metadata automatically)
-    # mlflow.catboost.autolog() 
 
     with mlflow.start_run():
         print("Starting training...")
@@ -48,14 +49,10 @@ def train_model():
             "verbose": 100,
             "random_seed": 42
         }
-        
-        # Log params manually
         mlflow.log_params(params)
 
-        # 5. Initialize and Train CatBoost
-        # Note: We pass the categorical feature names directly to CatBoost
+        # 5. Train Model
         model = CatBoostClassifier(**params)
-        
         model.fit(
             X_train, y_train,
             cat_features=cat_features,
@@ -72,28 +69,24 @@ def train_model():
         f1 = f1_score(y_test, predictions)
         auc = roc_auc_score(y_test, probabilities)
 
-        print(f"Accuracy: {acc:.4f}")
-        print(f"F1 Score: {f1:.4f}")
-        print(f"AUC-ROC: {auc:.4f}")
-
-        # 7. Log Metrics
+        # 7. Log Metrics to EC2
         mlflow.log_metric("accuracy", acc)
         mlflow.log_metric("f1_score", f1)
         mlflow.log_metric("auc", auc)
 
         # 8. Save Model
-        # Save locally for the API Docker image to pick up easily later
+        # Save locally (for the Docker API image build)
         local_model_path = "final_model.cbm"
         model.save_model(local_model_path)
         print(f"Model saved locally to {local_model_path}")
 
-        # Log model to MLflow Artifacts
+        # Log model to MLflow (for the Dashboard)
         mlflow.catboost.log_model(
             cb_model=model,
             artifact_path=ARTIFACT_PATH,
             registered_model_name=MODEL_NAME
         )
-        print("Model logged to MLflow.")
+        print(f"Model logged to MLflow at {TRACKING_URI}")
 
 if __name__ == "__main__":
     train_model()
