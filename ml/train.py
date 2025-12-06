@@ -8,7 +8,7 @@ import preprocess
 import os
 
 # --- Configuration ---
-DATA_PATH = "data/Customer_data.csv"  # Ensure this path is correct relative to where you run the script
+DATA_PATH = "../data/Customer_data.csv" 
 EXPERIMENT_NAME = "Telco_Churn_Prediction"
 MODEL_NAME = "catboost_churn_model"
 ARTIFACT_PATH = "model"
