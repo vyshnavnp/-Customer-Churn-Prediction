@@ -1,8 +1,6 @@
 version: '3.8'
-
 services:
   api_service:
-    # Notice the repo name here is 'churn-api'
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/churn-api:latest
     container_name: churn-backend
     ports:
@@ -11,13 +9,12 @@ services:
       - churn-net
 
   frontend_service:
-    # Notice the repo name here is 'churn-frontend'
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/churn-frontend:latest
     container_name: churn-frontend
     ports:
       - "8501:8501"
-    # Removed volume mount since data is now in the image
     environment:
+      # CRITICAL: This must use the container name 'api_service', NOT localhost
       - API_URL=http://api_service:80/predict
     depends_on:
       - api_service
