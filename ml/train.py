@@ -9,7 +9,7 @@ import os
 import requests  # Import requests to handle timeouts
 
 # --- Configuration ---
-DATA_PATH = "data/Customer_data.csv"
+DATA_PATH = "../data/Customer_data.csv" 
 EXPERIMENT_NAME = "Telco_Churn_Prediction"
 MODEL_NAME = "catboost_churn_model"
 ARTIFACT_PATH = "model"
