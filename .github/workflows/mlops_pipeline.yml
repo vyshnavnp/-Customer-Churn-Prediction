@@ -74,10 +74,10 @@ jobs:
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
+        username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         source: "docker-compose.prod.yaml,data/Customer_data.xlsx"
-        target: "/home/ec2-user/churn-app/"
+        target: "/home/ubuntu/churn-app/"
         strip_components: 0
 
     # 2. SSH into EC2 and run Docker Compose
@@ -85,7 +85,7 @@ jobs:
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
+        username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         envs: AWS_REGION, ECR_API_REPO, ECR_FRONT_REPO
         script: |
@@ -97,7 +97,7 @@ jobs:
           export AWS_REGION=us-east-1
           
           # Go to app folder
-          cd /home/ec2-user/churn-app
+          cd /home/ubuntu/churn-app
           
           # Pull latest images and restart
           docker-compose -f docker-compose.prod.yaml pull
