@@ -109,6 +109,6 @@ The pipeline is defined in `.github/workflows/deploy.yml`. Every time code is pu
     *   Connects to EC2 via SSH.
     *   Pulls the new images.
     *   Restarts the containers using `docker-compose`.
-
+ 
 ---
 
