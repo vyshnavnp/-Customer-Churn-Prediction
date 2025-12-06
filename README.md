@@ -90,7 +90,7 @@ To run this application locally on your machine:
     *   API Docs: `http://localhost:80/docs`
     *   MLflow: `http://localhost:5000`
 
----
+--- 
 
 ## 🔄 CI/CD Pipeline (GitHub Actions)
 
