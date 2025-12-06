@@ -2,7 +2,7 @@ name: Deploy Multi-Container App to EC2
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   AWS_REGION: us-east-1
@@ -28,36 +28,32 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    # --- TRAIN MODEL ---
-    # This generates the model file freshly on every push
-    - name: Set up Python for Training
+    # --- TRAIN MODEL BEFORE BUILDING API ---
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.9"
     
     - name: Install Training Dependencies
-      # Added 'openpyxl' just in case you switch back to Excel
       run: pip install pandas openpyxl scikit-learn catboost mlflow
 
     - name: Train Model
       run: |
         cd ml
         python train.py
-        # Move the generated model to the API folder so Docker can find it
         mv final_model.cbm ../api/
 
     # --- BUILD & PUSH API ---
-    - name: Build and Push API
+    - name: Build & Push API Image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: latest
       run: |
-        # Docker build finds the model because we moved it into ./api above
         docker build -t $ECR_REGISTRY/$ECR_API_REPO:$IMAGE_TAG ./api
         docker push $ECR_REGISTRY/$ECR_API_REPO:$IMAGE_TAG
 
     # --- BUILD & PUSH FRONTEND ---
-    - name: Build and Push Frontend
+    - name: Build & Push Frontend Image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: latest
@@ -73,7 +69,7 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    # 1. Create directory on EC2 first to avoid SCP errors
+    # Create app directory (safe even if exists)
     - name: Create App Directory
       uses: appleboy/ssh-action@master
       with:
@@ -82,8 +78,8 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         script: mkdir -p /home/ubuntu/churn-app
 
-    # 2. Copy ONLY the compose file (Data is already inside the Docker images)
-    - name: Copy Compose File to EC2
+    # Upload only the compose file
+    - name: Upload Compose File
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
@@ -92,29 +88,39 @@ jobs:
         source: "docker-compose.prod.yaml"
         target: "/home/ubuntu/churn-app/"
 
-    # 3. Deploy via SSH
-    - name: Deploy via SSH
+    # Main deployment logic
+    - name: Deploy to EC2
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # Login to AWS ECR
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
-          
-          # Navigate to app folder
+          set -e
+
+          echo "=== Logging into ECR on EC2 ==="
+          aws ecr get-login-password --region us-east-1 \
+            | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
           cd /home/ubuntu/churn-app
-          
-          # Create .env file for Docker Compose
-          # This persists the variables so you can restart manually later if needed
+
+          echo "=== Writing .env for Docker Compose ==="
           echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" > .env
           echo "AWS_REGION=us-east-1" >> .env
-          
-          # Pull latest images and restart
-          docker-compose -f docker-compose.prod.yaml pull
-          docker-compose -f docker-compose.prod.yaml down
-          docker-compose -f docker-compose.prod.yaml up -d --remove-orphans
-          
-          # Cleanup unused images to save disk space
+
+          echo "=== Pulling latest images ==="
+          docker compose -f docker-compose.prod.yaml pull || true
+
+          echo "=== Attempting clean shutdown ==="
+          docker compose -f docker-compose.prod.yaml down || true
+
+          echo "=== Restarting Docker service in case containers were stuck ==="
+          sudo systemctl restart docker
+
+          echo "=== Starting fresh containers ==="
+          docker compose -f docker-compose.prod.yaml up -d --remove-orphans
+
+          echo "=== Cleaning old images ==="
           docker image prune -f
+
+          echo "=== Deployment Complete ==="
