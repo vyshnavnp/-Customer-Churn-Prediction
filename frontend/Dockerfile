@@ -1,4 +1,6 @@
+
 FROM python:3.9-slim
+LABEL cache_bust="20251206"
 
 WORKDIR /app
 
