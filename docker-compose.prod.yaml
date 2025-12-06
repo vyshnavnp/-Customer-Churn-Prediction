@@ -16,8 +16,7 @@ services:
     container_name: churn-frontend
     ports:
       - "8501:8501"
-    volumes:
-      - ./data:/app/data
+    # Removed volume mount since data is now in the image
     environment:
       - API_URL=http://api_service:80/predict
     depends_on:

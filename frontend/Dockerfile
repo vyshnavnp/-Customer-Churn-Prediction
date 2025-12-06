@@ -9,7 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the dashboard code
 COPY dashboard.py .
 
-# We don't copy data here; we will mount it via Docker Compose
+# Copy the data directory into the image
+COPY ../data /app/data
+
 # Expose Streamlit port
 EXPOSE 8501
 
