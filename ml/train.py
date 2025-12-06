@@ -15,6 +15,7 @@ MODEL_NAME = "catboost_churn_model"
 ARTIFACT_PATH = "model"
 TRACKING_URI = "http://54.83.186.49:5000"
 
+
 def train_model():
     # 1. Prepare Data
     print("Loading and preprocessing data...")
