@@ -1,17 +1,6 @@
-Here is a professional and comprehensive `README.md` file for your project. It documents everything we built, including the architecture, tech stack, setup instructions, and the CI/CD pipeline details.
-
-You can create a file named `README.md` in the root of your repository and paste this content in.
-
-***
-
 # 📊 End-to-End Telco Customer Churn Prediction
 
 A full-stack Machine Learning application that predicts whether a telecommunications customer is likely to churn. The project demonstrates a complete **MLOps pipeline** including model training, experiment tracking, containerization, and automated cloud deployment.
-
-## 🚀 Live Demo & Links
-*   **Frontend Dashboard:** `http://<YOUR-EC2-IP>:8501`
-*   **Prediction API:** `http://<YOUR-EC2-IP>:80/docs`
-*   **MLflow Tracking:** `http://<YOUR-EC2-IP>:5000`
 
 ---
 
@@ -76,8 +65,8 @@ To run this application locally on your machine:
 2.  **Create an `.env` file:**
     Create a file named `.env` in the root directory:
     ```ini
-    AWS_ACCOUNT_ID=123456789
-    AWS_REGION=us-east-1
+    AWS_ACCOUNT_ID=...
+    AWS_REGION=...
     ```
 
 3.  **Run with Docker Compose:**
